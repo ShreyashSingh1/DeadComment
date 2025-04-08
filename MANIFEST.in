@@ -1,0 +1,2 @@
+include src/code_cleaner/templates/*.html
+recursive-include src/code_cleaner/templates *
