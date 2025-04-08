@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Cleaner</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .upload-container {
+            border: 2px dashed #ccc;
+            border-radius: 6px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 20px;
+            transition: border-color 0.3s ease;
+            background-color: #f9f9f9;
+        }
+        .upload-container:hover, .upload-container.dragover {
+            border-color: #3498db;
+        }
+        .upload-container p {
+            margin-bottom: 15px;
+            color: #666;
+        }
+        .btn {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+        .btn:hover {
+            background-color: #2980b9;
+        }
+        .btn:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+        #file-input {
+            display: none;
+        }
+        .file-info {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #666;
+        }
+        .progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-bar {
+            height: 10px;
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .progress {
+            height: 100%;
+            background-color: #2ecc71;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .result-container {
+            margin-top: 30px;
+            display: none;
+            text-align: center;
+        }
+        .result-info {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e8f4fc;
+            border-radius: 4px;
+        }
+        .features {
+            margin-top: 40px;
+        }
+        .feature {
+            margin-bottom: 15px;
+            padding-left: 20px;
+            position: relative;
+        }
+        .feature:before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: #2ecc71;
+        }
+        .error-message {
+            color: #e74c3c;
+            margin-top: 10px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Code Cleaner</h1>
+        
+        <div class="upload-container" id="drop-area">
+            <p>Upload your ZIP file containing source code</p>
+            <button class="btn" id="select-file-btn">Select ZIP File</button>
+            <input type="file" id="file-input" accept=".zip" />
+            <p class="file-info" id="file-info">No file selected</p>
+            <div class="error-message" id="error-message"></div>
+        </div>
+        
+        <div class="progress-container" id="progress-container">
+            <p>Processing your code...</p>
+            <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+            </div>
+        </div>
+        
+        <div class="result-container" id="result-container">
+            <div class="result-info" id="result-info"></div>
+            <button class="btn" id="download-btn">Download Processed Code</button>
+        </div>
+        
+        <div class="features">
+            <h3>This tool automatically removes:</h3>
+            <div class="feature">Comments (single-line and multi-line)</div>
+            <div class="feature">Console/log statements</div>
+            <div class="feature">Dead code (using AI analysis)</div>
+            <p>Supports multiple programming languages including Python, JavaScript, Java, C/C++, Go, Ruby, PHP, and more!</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropArea = document.getElementById('drop-area');
+            const fileInput = document.getElementById('file-input');
+            const selectFileBtn = document.getElementById('select-file-btn');
+            const fileInfo = document.getElementById('file-info');
+            const progressContainer = document.getElementById('progress-container');
+            const progress = document.getElementById('progress');
+            const resultContainer = document.getElementById('result-container');
+            const resultInfo = document.getElementById('result-info');
+            const downloadBtn = document.getElementById('download-btn');
+            const errorMessage = document.getElementById('error-message');
+            
+            let jobId = null;
+            
+            // Handle file selection button
+            selectFileBtn.addEventListener('click', function() {
+                fileInput.click();
+            });
+            
+            // Handle file selection
+            fileInput.addEventListener('change', function() {
+                handleFiles(this.files);
+            });
+            
+            // Handle drag and drop events
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, preventDefaults, false);
+            });
+            
+            function preventDefaults(e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            
+            ['dragenter', 'dragover'].forEach(eventName => {
+                dropArea.addEventListener(eventName, highlight, false);
+            });
+            
+            ['dragleave', 'drop'].forEach(eventName => {
+                dropArea.addEventListener(eventName, unhighlight, false);
+            });
+            
+            function highlight() {
+                dropArea.classList.add('dragover');
+            }
+            
+            function unhighlight() {
+                dropArea.classList.remove('dragover');
+            }
+            
+            dropArea.addEventListener('drop', function(e) {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                handleFiles(files);
+            }, false);
+            
+            function handleFiles(files) {
+                if (files.length === 0) return;
+                
+                const file = files[0];
+                
+                // Check if file is a ZIP
+                if (!file.name.toLowerCase().endsWith('.zip')) {
+                    showError('Please upload a ZIP file');
+                    return;
+                }
+                
+                // Display file info
+                fileInfo.textContent = `Selected: ${file.name} (${formatFileSize(file.size)})`;
+                errorMessage.style.display = 'none';
+                
+                // Upload the file
+                uploadFile(file);
+            }
+            
+            function formatFileSize(bytes) {
+                if (bytes < 1024) return bytes + ' bytes';
+                else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+                else return (bytes / 1048576).toFixed(1) + ' MB';
+            }
+            
+            function showError(message) {
+                errorMessage.textContent = message;
+                errorMessage.style.display = 'block';
+                fileInfo.textContent = 'No file selected';
+            }
+            
+            function uploadFile(file) {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Show progress
+                progressContainer.style.display = 'block';
+                resultContainer.style.display = 'none';
+                selectFileBtn.disabled = true;
+                
+                // Simulate progress (since we don't have real progress events from the server)
+                let progressValue = 0;
+                const progressInterval = setInterval(() => {
+                    progressValue += 5;
+                    if (progressValue > 90) {
+                        progressValue = 90; // Cap at 90% until we get the response
+                        clearInterval(progressInterval);
+                    }
+                    progress.style.width = progressValue + '%';
+                }, 300);
+                
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    clearInterval(progressInterval);
+                    
+                    if (!response.ok) {
+                        return response.json().then(data => {
+                            throw new Error(data.error || 'Upload failed');
+                        });
+                    }
+                    
+                    return response.json();
+                })
+                .then(data => {
+                    progress.style.width = '100%';
+                    
+                    setTimeout(() => {
+                        progressContainer.style.display = 'none';
+                        resultContainer.style.display = 'block';
+                        
+                        jobId = data.job_id;
+                        
+                        resultInfo.innerHTML = `
+                            <p><strong>Processing complete!</strong></p>
+                            <p>Successfully processed ${data.processed_files} files.</p>
+                            ${data.skipped_files > 0 ? `<p>Skipped ${data.skipped_files} files (unsupported formats).</p>` : ''}
+                        `;
+                        
+                        selectFileBtn.disabled = false;
+                    }, 500);
+                })
+                .catch(error => {
+                    clearInterval(progressInterval);
+                    progressContainer.style.display = 'none';
+                    selectFileBtn.disabled = false;
+                    showError(error.message || 'An error occurred during upload');
+                });
+            }
+            
+            // Handle download button
+            downloadBtn.addEventListener('click', function() {
+                if (jobId) {
+                    window.location.href = `/download/${jobId}`;
+                }
+            });
+        });
+    </script>
+</body>
+</html>
