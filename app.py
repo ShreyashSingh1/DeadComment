@@ -305,7 +305,14 @@ def process_zip_file(zip_path):
             'skipped_files': skipped_files,
             'job_id': job_id
         }
+    except zipfile.BadZipFile:
+        print(f"Error: The uploaded file is not a valid ZIP file: {zip_path}")
+        return {
+            'success': False,
+            'error': 'Invalid ZIP file format'
+        }
     except Exception as e:
+        print(f"Error processing ZIP file {zip_path}: {e}")
         return {
             'success': False,
             'error': str(e)
@@ -338,6 +345,9 @@ def upload_file():
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(file_path)
         
+        # Debug: Log the saved file path
+        print(f"Uploaded file saved at: {file_path}")
+        
         # Process the zip file
         result = process_zip_file(file_path)
         
@@ -349,8 +359,10 @@ def upload_file():
                 'skipped_files': result['skipped_files']
             })
         else:
+            print(f"Error during ZIP processing: {result['error']}")
             return jsonify({'error': result['error']}), 500
     except Exception as e:
+        print(f"Unexpected error during file upload: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/download/<job_id>')
@@ -378,10 +390,18 @@ def download_file(job_id):
 
 if __name__ == '__main__':
     import argparse
-    
+    from werkzeug.middleware.proxy_fix import ProxyFix
+
+    # Exclude the 'uploads' directory from Flask's reloader
+    import os
+    from flask.cli import run_command
+    os.environ['FLASK_RUN_EXTRA_FILES'] = ','.join(
+        [os.path.abspath(f) for f in os.listdir('.') if f != 'uploads']
+    )
+
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Code Cleaner Application')
     parser.add_argument('--port', type=int, default=5000, help='Port to run the server on')
     args = parser.parse_args()
     
-    app.run(debug=True, host='0.0.0.0', port=args.port)
+    app.run(host='0.0.0.0', port=args.port)
